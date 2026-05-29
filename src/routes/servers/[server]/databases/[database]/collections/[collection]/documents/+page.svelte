@@ -15,6 +15,8 @@
 	import ExplainPanel from "$lib/components/ExplainPanel.svelte";
 	import Panel from "$lib/components/Panel.svelte";
 	import PrettyJson from "$lib/components/PrettyJson.svelte";
+	import DocumentTable from "$lib/components/DocumentTable.svelte";
+	import { browser } from "$app/environment";
 	import SearchBox from "$lib/components/SearchBox.svelte";
 	import IconCopy from "$lib/icons/IconCopy.svelte";
 	import IconPlus from "$lib/icons/IconPlus.svelte";
@@ -31,6 +33,23 @@
 	let params = $state<SearchParams>({ ...data.params });
 	let dataPromise = $derived(data.results);
 	let editMode = $state(false);
+	let viewMode = $state<"json" | "table">("json");
+
+	$effect(() => {
+		if (browser) {
+			const saved = localStorage.getItem("mongoku:view-mode");
+			if (saved === "table" || saved === "json") {
+				viewMode = saved;
+			}
+		}
+	});
+
+	function setViewMode(mode: "json" | "table") {
+		viewMode = mode;
+		if (browser) {
+			localStorage.setItem("mongoku:view-mode", mode);
+		}
+	}
 	let updateQuery = $state("{}");
 	let isUpdating = $state(false);
 	let showInsertEditor = $state(false);
@@ -860,20 +879,47 @@
 		{/if}
 	{/await}
 
-	{#each items as item, index (item._id?.$value || index)}
-		<PrettyJson
-			json={item}
-			autoCollapse={true}
-			onedit={data.params.mode === "aggregation" || data.params.mode === "distinct" || data.readOnly
-				? undefined
-				: (json) => editDocument(item._id, json, items)}
-			onremove={data.params.mode === "aggregation" || data.params.mode === "distinct" || data.readOnly
-				? undefined
-				: () => removeDocument(item._id, items)}
-			server={data.server}
-			database={data.database}
-			collection={data.collection}
-			mappings={data.mappings}
-		/>
-	{/each}
+	{#if data.params.mode !== "distinct" && items.length > 0}
+		<div class="mb-3 flex justify-end gap-1">
+			<button
+				class="rounded-lg border border-[var(--border-color)] px-3 py-1 text-[13px] transition"
+				style="color: var(--text); cursor: pointer; background: {viewMode === 'json'
+					? 'var(--color-3)'
+					: 'var(--light-background)'};"
+				onclick={() => setViewMode("json")}
+			>
+				JSON
+			</button>
+			<button
+				class="rounded-lg border border-[var(--border-color)] px-3 py-1 text-[13px] transition"
+				style="color: var(--text); cursor: pointer; background: {viewMode === 'table'
+					? 'var(--color-3)'
+					: 'var(--light-background)'};"
+				onclick={() => setViewMode("table")}
+			>
+				Table
+			</button>
+		</div>
+	{/if}
+
+	{#if viewMode === "table" && data.params.mode !== "distinct"}
+		<DocumentTable {items} server={data.server} database={data.database} collection={data.collection} />
+	{:else}
+		{#each items as item, index (item._id?.$value || index)}
+			<PrettyJson
+				json={item}
+				autoCollapse={true}
+				onedit={data.params.mode === "aggregation" || data.params.mode === "distinct" || data.readOnly
+					? undefined
+					: (json) => editDocument(item._id, json, items)}
+				onremove={data.params.mode === "aggregation" || data.params.mode === "distinct" || data.readOnly
+					? undefined
+					: () => removeDocument(item._id, items)}
+				server={data.server}
+				database={data.database}
+				collection={data.collection}
+				mappings={data.mappings}
+			/>
+		{/each}
+	{/if}
 {/await}
