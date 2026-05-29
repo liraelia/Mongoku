@@ -210,6 +210,59 @@
 		});
 	}
 
+	function jumpToPage(value: string, totalPages: number) {
+		const page = Math.max(1, Math.min(totalPages, Math.floor(Number(value))));
+		if (!Number.isFinite(page)) {
+			return;
+		}
+		const newSkip = (page - 1) * params.limit;
+		if (newSkip === data.params.skip) {
+			return;
+		}
+		data.params.skip = newSkip;
+		params.skip = newSkip;
+		/* eslint-disable-next-line svelte/no-navigation-without-resolve */
+		pushState(buildUrl(newSkip), {});
+		dataPromise = loadDocuments({
+			server: data.server,
+			database: data.database,
+			collection: data.collection,
+			query: params.query,
+			sort: params.sort,
+			project: params.project,
+			skip: params.skip,
+			limit: params.limit,
+			mode: params.mode,
+			field: params.field,
+		});
+	}
+
+	function changePageSize(value: string) {
+		const newLimit = Math.floor(Number(value));
+		if (!Number.isFinite(newLimit) || newLimit < 1 || newLimit === params.limit) {
+			return;
+		}
+		const newSkip = Math.floor(data.params.skip / newLimit) * newLimit;
+		data.params.limit = newLimit;
+		params.limit = newLimit;
+		data.params.skip = newSkip;
+		params.skip = newSkip;
+		/* eslint-disable-next-line svelte/no-navigation-without-resolve */
+		pushState(buildUrl(newSkip), {});
+		dataPromise = loadDocuments({
+			server: data.server,
+			database: data.database,
+			collection: data.collection,
+			query: params.query,
+			sort: params.sort,
+			project: params.project,
+			skip: params.skip,
+			limit: params.limit,
+			mode: params.mode,
+			field: params.field,
+		});
+	}
+
 	async function executeUpdateMany() {
 		isUpdating = true;
 		try {
@@ -502,6 +555,47 @@
 	>
 		Next
 	</a>
+{/snippet}
+
+{#snippet pageSizeSelect()}
+	<select
+		value={data.params.limit}
+		onchange={(e) => changePageSize((e.currentTarget as HTMLSelectElement).value)}
+		class="px-2 py-1 rounded-lg border border-[var(--border-color)] bg-[var(--light-background)] text-[13px]"
+		style="color: var(--text); cursor: pointer;"
+		title="Documents per page"
+	>
+		{#each [20, 50, 100] as size (size)}
+			<option value={size}>{size} / page</option>
+		{/each}
+		{#if ![20, 50, 100].includes(data.params.limit)}
+			<option value={data.params.limit}>{data.params.limit} / page</option>
+		{/if}
+	</select>
+{/snippet}
+
+{#snippet pageJump(total: number)}
+	{@const totalPages = Math.max(1, Math.ceil(total / data.params.limit))}
+	{@const currentPage = Math.floor(data.params.skip / data.params.limit) + 1}
+	<div class="flex items-center gap-1 text-[13px]" style="color: var(--text);">
+		<span>Page</span>
+		<input
+			type="number"
+			min="1"
+			max={totalPages}
+			value={currentPage}
+			onkeydown={(e) => {
+				if (e.key === "Enter") {
+					jumpToPage((e.currentTarget as HTMLInputElement).value, totalPages);
+				}
+			}}
+			onblur={(e) => jumpToPage((e.currentTarget as HTMLInputElement).value, totalPages)}
+			class="w-16 px-2 py-1 rounded-lg border border-[var(--border-color)] bg-[var(--light-background)] text-center"
+			style="color: var(--text);"
+			title="Jump to page"
+		/>
+		<span>of {formatNumber(totalPages)}</span>
+	</div>
 {/snippet}
 
 {#snippet sortButton()}
@@ -820,6 +914,7 @@
 				{#if data.params.mode === "distinct"}
 					{@render copyButton(items)}
 				{:else}
+					{@render pageSizeSelect()}
 					{@render sortButton()}
 				{/if}
 			{/snippet}
@@ -850,9 +945,13 @@
 					{#if hasNext}
 						{@render nextButton(nextUrl, navigateNext)}
 					{/if}
+					{#if data.params.mode !== "distinct" && !countData.error && count > data.params.limit}
+						{@render pageJump(count)}
+					{/if}
 					{#if data.params.mode === "distinct"}
 						{@render copyButton(items)}
 					{:else}
+						{@render pageSizeSelect()}
 						{@render sortButton()}
 					{/if}
 				{/snippet}

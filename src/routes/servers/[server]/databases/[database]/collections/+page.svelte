@@ -4,7 +4,6 @@
 	import { resolve } from "$app/paths";
 	import Modal from "$lib/components/Modal.svelte";
 	import Panel from "$lib/components/Panel.svelte";
-	import TooltipTable from "$lib/components/TooltipTable.svelte";
 	import { notificationStore } from "$lib/stores/notifications.svelte";
 	import { formatBytes, formatNumber } from "$lib/utils/filters";
 	import type { PageData } from "./$types";
@@ -16,6 +15,32 @@
 	let showDropModal = $state(false);
 	let collectionToDrop = $state<Collection | null>(null);
 	let isDropping = $state(false);
+
+	let sortColumn = $state<"name" | "count" | "size">("name");
+	let sortAsc = $state(true);
+
+	function toggleSort(col: "name" | "count" | "size") {
+		if (sortColumn === col) {
+			sortAsc = !sortAsc;
+		} else {
+			sortColumn = col;
+			sortAsc = true;
+		}
+	}
+
+	let sortedCollections = $derived(
+		[...data.collections].sort((a, b) => {
+			let cmp = 0;
+			if (sortColumn === "name") {
+				cmp = a.name.localeCompare(b.name);
+			} else if (sortColumn === "count") {
+				cmp = a.count - b.count;
+			} else if (sortColumn === "size") {
+				cmp = a.size - b.size;
+			}
+			return sortAsc ? cmp : -cmp;
+		}),
+	);
 
 	function openDropModal(collection: Collection) {
 		collectionToDrop = collection;
@@ -55,16 +80,22 @@
 	<table class="table">
 		<thead>
 			<tr>
-				<th>Name</th>
-				<th>Documents</th>
-				<th>Indexes</th>
-				<th>Size</th>
+				<th class="sortable" onclick={() => toggleSort("name")}>
+					Name {sortColumn === "name" ? (sortAsc ? "▲" : "▼") : ""}
+				</th>
+				<th class="sortable" onclick={() => toggleSort("count")}>
+					Documents {sortColumn === "count" ? (sortAsc ? "▲" : "▼") : ""}
+				</th>
+				<th class="sortable" onclick={() => toggleSort("size")}>
+					Size {sortColumn === "size" ? (sortAsc ? "▲" : "▼") : ""}
+				</th>
+				<th>Type</th>
 				<th></th>
 			</tr>
 		</thead>
 		<tbody>
-			{#if data.collections && data.collections.length > 0}
-				{#each data.collections as collection (collection.name)}
+			{#if sortedCollections && sortedCollections.length > 0}
+				{#each sortedCollections as collection (collection.name)}
 					<tr class="group">
 						<td>
 							<a
@@ -78,68 +109,27 @@
 							</a>
 						</td>
 						<td>
-							{#await collection.details}
-								<span style="color: var(--text-secondary);">...</span>
-							{:then details}
-								{#if details}
-									{formatNumber(details.count)}
-								{:else}
-									<span title="Failed to load">❌</span>
-								{/if}
-							{/await}
+							{formatNumber(collection.count)}
 						</td>
 						<td>
-							{#await collection.details}
-								<span style="color: var(--text-secondary);">...</span>
-							{:then details}
-								{#if details}
-									<TooltipTable
-										columns={[
-											{ header: "Index", key: "definition", align: "left" },
-											{ header: "Size", key: "size", align: "right" },
-										]}
-										rows={details.indexes.map((index) => ({
-											definition: index.key ? JSON.stringify(index.key, null, 1) : index.name,
-											size: formatBytes(index.size),
-										}))}
-									>
-										{formatNumber(details.nIndexes)}
-									</TooltipTable>
-								{:else}
-									<span title="Failed to load">❌</span>
-								{/if}
-							{/await}
+							{formatBytes(collection.size)}
 						</td>
 						<td>
-							{#await collection.details}
-								<span style="color: var(--text-secondary);">...</span>
-							{:then details}
-								{#if details}
-									<TooltipTable
-										hideHeader
-										columns={[
-											{ header: "Label", key: "label", align: "left" },
-											{ header: "Value", key: "value", align: "right" },
-										]}
-										rows={[
-											{ label: "Average obj. size", value: details.avgObjSize },
-											{ label: "Data size", value: details.dataSize },
-											{ label: "Storage size", value: details.storageSize },
-											{ label: "Index size", value: details.totalIndexSize },
-										].map((row) => ({
-											...row,
-											value: typeof row.value === "number" ? formatBytes(row.value) : row.value,
-										}))}
-									>
-										{formatBytes(details.size)}
-									</TooltipTable>
-								{:else}
-									<span title="Failed to load">❌</span>
-								{/if}
-							{/await}
+							{collection.type ?? "collection"}
 						</td>
-						<td style="width: 100px">
-							<div class="flex justify-end">
+						<td style="width: 180px">
+							<div class="flex gap-2 justify-end">
+								<a
+									class="btn btn-default btn-sm -my-2 hidden group-hover:inline"
+									href={resolve(
+										`/servers/${encodeURIComponent(data.server)}/databases/${encodeURIComponent(
+											data.database,
+										)}/collections/${encodeURIComponent(collection.name)}/export`,
+									)}
+									download
+								>
+									Export
+								</a>
 								{#if !data.readOnly}
 									<button
 										class="btn btn-outline-danger btn-sm -my-2 hidden group-hover:inline"
@@ -179,3 +169,13 @@
 		</button>
 	{/snippet}
 </Modal>
+
+<style>
+	.sortable {
+		cursor: pointer;
+		user-select: none;
+	}
+	.sortable:hover {
+		opacity: 0.7;
+	}
+</style>
