@@ -3,6 +3,7 @@
 	import { resolve } from "$app/paths";
 	import Panel from "$lib/components/Panel.svelte";
 	import { notificationStore } from "$lib/stores/notifications.svelte";
+	import { copyToClipboard } from "$lib/utils/clipboard";
 	import type { MappingTarget } from "$lib/types";
 	import type { PageData } from "./$types";
 	let { data }: { data: PageData } = $props();
@@ -99,7 +100,7 @@ Please analyze the codebase and database, then generate the appropriate mappings
 
 	async function copyAiPrompt() {
 		try {
-			await navigator.clipboard.writeText(aiPrompt);
+			await copyToClipboard(aiPrompt);
 			notificationStore.notifySuccess("AI prompt copied to clipboard");
 		} catch (err) {
 			notificationStore.notifyError(err, "Failed to copy to clipboard");

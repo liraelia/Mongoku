@@ -2,6 +2,7 @@
 	import { fetchMappedDocument as fetchMappedDocumentRemote } from "$api/servers.remote";
 	import { resolve } from "$app/paths";
 	import { jsonTextarea } from "$lib/actions/jsonTextarea";
+	import { copyToClipboard } from "$lib/utils/clipboard";
 	import { notificationStore } from "$lib/stores/notifications.svelte";
 	import type { Mappings, MongoDocument } from "$lib/types";
 	import { parseJSON, serializeForEditing } from "$lib/utils/jsonParser";
@@ -198,10 +199,10 @@
 		onremove?.();
 	}
 
-	async function copyToClipboard() {
+	async function copyDocument() {
 		try {
 			const jsonString = serializeForEditing(json);
-			await navigator.clipboard.writeText(jsonString);
+			await copyToClipboard(jsonString);
 			notificationStore.notifySuccess("Document copied to clipboard");
 		} catch (err) {
 			notificationStore.notifyError(err, "Failed to copy to clipboard");
@@ -248,7 +249,7 @@
 		<button
 			class="px-3 py-1 rounded-lg border border-[var(--border-color)] bg-[var(--light-background)] hover:bg-[var(--color-3)] text-[13px] transition cursor-pointer"
 			style="color: var(--text);"
-			onclick={copyToClipboard}
+			onclick={copyDocument}
 		>
 			Copy
 		</button>

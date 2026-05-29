@@ -20,6 +20,7 @@
 	import IconPlus from "$lib/icons/IconPlus.svelte";
 	import IconSortReverse from "$lib/icons/IconSortReverse.svelte";
 	import { notificationStore } from "$lib/stores/notifications.svelte";
+	import { copyToClipboard } from "$lib/utils/clipboard";
 	import type { MongoDocument, SearchParams } from "$lib/types";
 	import { formatNumber } from "$lib/utils/filters";
 	import { parseJSON, serializeForEditing } from "$lib/utils/jsonParser";
@@ -410,7 +411,7 @@
 			// Extract the values from the {value: ...} wrapper
 			const values = items.map((item) => item.value);
 			const jsonString = serializeForEditing(values);
-			await navigator.clipboard.writeText(jsonString);
+			await copyToClipboard(jsonString);
 			notificationStore.notifySuccess("Copied distinct values to clipboard");
 		} catch (error) {
 			console.error(error);
